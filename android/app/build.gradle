@@ -59,6 +59,12 @@ react {
  */
 def enableProguardInReleaseBuilds = false
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
@@ -92,15 +98,23 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (keystoreProperties.containsKey('PLIE_STORE_FILE')) {
+            release {
+                storeFile file(keystoreProperties['PLIE_STORE_FILE'])
+                storePassword keystoreProperties['PLIE_STORE_PASSWORD']
+                keyAlias keystoreProperties['PLIE_KEY_ALIAS']
+                keyPassword keystoreProperties['PLIE_KEY_PASSWORD']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Falls back to the debug key so a checkout without keystore.properties
+            // still builds; real releases are signed with the release config.
+            signingConfig signingConfigs.findByName('release') ?: signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
